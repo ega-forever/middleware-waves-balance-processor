@@ -11,7 +11,6 @@
 const config = require('./config'),
   mongoose = require('mongoose'),
   accountModel = require('./models/accountModel'),
-  net = require('net'),
   bunyan = require('bunyan'),
   Promise = require('bluebird'),
   RPC = require('./utils/RPC'),
