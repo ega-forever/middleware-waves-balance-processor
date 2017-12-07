@@ -1,8 +1,8 @@
 /**
- * Middleware service for handling user balance. 
+ * Middleware service for handling user balance.
  * Update balances for accounts, which addresses were specified
  * in received transactions from blockParser via amqp
- * 
+ *
  * @module Chronobank/eth-balance-processor
  * @requires config
  * @requires models/accountModel
@@ -25,7 +25,6 @@ mongoose.connection.on('disconnected', function () {
   process.exit(0);
 });
 
-
 let init = async () => {
   let conn = await amqp.connect(config.rabbit.url)
     .catch(() => {
@@ -43,22 +42,36 @@ let init = async () => {
   await channel.assertExchange('events', 'topic', {durable: false});
   await channel.assertQueue(`app_${config.rabbit.serviceName}.balance_processor`);
   await channel.bindQueue(`app_${config.rabbit.serviceName}.balance_processor`, 'events', `${config.rabbit.serviceName}_transaction.*`);
-  
+
   channel.prefetch(2);
   channel.consume(`app_${config.rabbit.serviceName}.balance_processor`, async (data) => {
     try {
       let tx = JSON.parse(data.content.toString());
+
+      if(tx.type !== 4)
+        return channel.ack(data);
+
       let accounts = tx ? await accountModel.find({address: {$in: [tx.sender, tx.recipient]}}) : [];
 
       for (let account of accounts) {
-        let result = await RPC(`addresses.balance.${account.address}`);
-        await accountModel.update({address: account.address}, {$set: {balance: result.balance}})
-          .catch(() => {
-          });
+        if (!tx.assetId) {
+          let result = await RPC(`addresses.balance.${account.address}`);
+          account = await accountModel.findOneAndUpdate({address: account.address}, {$set: {balance: result.balance}}, {upsert: true})
+            .catch(() => {
+            });
+        }
+
+        if (tx.assetId) {
+          let result = await RPC(`addresses.balance.${account.address}`);
+          account = await accountModel.findOneAndUpdate({address: account.address}, {$set: {[`assets.${tx.assetId}`]: result.balance}}, {upsert: true})
+            .catch(() => {
+            });
+        }
 
         await  channel.publish('events', `${config.rabbit.serviceName}_balance.${account.address}`, new Buffer(JSON.stringify({
           address: account.address,
-          balance: result.balance,
+          balance: account.balance,
+          assets: account.assets,
           tx: tx
         })));
       }

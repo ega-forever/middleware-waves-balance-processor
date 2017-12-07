@@ -6,6 +6,7 @@ const config = require('../config'),
   transaction = require('./utils/transaction'),
   RPC = require('../utils/RPC'),
   mongoose = require('mongoose'),
+  _ = require('lodash'),
   expect = require('chai').expect,
   SockJS = require('sockjs-client'),
   Promise = require('bluebird'),
@@ -37,7 +38,28 @@ describe('core/balance processor', function () {
 
   it('send some waves from 0 account to account 1', async () => {
 
-    let transferTx = transaction.transfer(accounts[1].address, 100000, accounts[0]);
+    let transferTx = transaction.transfer(accounts[1].address, 100000, 100000, accounts[0]);
+    ctx.result = await RPC('assets.broadcast.transfer', transferTx, true);
+    expect(ctx.result.id).to.be.string;
+  });
+
+  it('create custom asset from 0 account to account 1', async () => {
+
+    let name = _.chain(new Array(10))
+      .map(c => _.random(10, 35).toString(36))
+      .join('')
+      .value();
+
+    let issueTx = transaction.asset(name, 'description', accounts[0], 100000000, 3, 100000000000, false);
+    ctx.asset = await RPC('assets.broadcast.issue', issueTx, true);
+    expect(ctx.asset.id).to.be.string;
+  });
+
+  it('send some custom coins from 0 account to account 1', async () => {
+    await awaitLastBlock();
+    await Promise.delay(5000);
+    await awaitLastBlock();
+    let transferTx = transaction.transfer(accounts[1].address, 100000, 100000, accounts[0], ctx.asset.assetId);
     ctx.result = await RPC('assets.broadcast.transfer', transferTx, true);
     expect(ctx.result.id).to.be.string;
   });
@@ -56,7 +78,7 @@ describe('core/balance processor', function () {
     return await Promise.all([
       (async () => {
         await Promise.delay(10000);
-        let transferTx = transaction.transfer(accounts[1].address, 100000, accounts[0]);
+        let transferTx = transaction.transfer(accounts[1].address, 100000, 100000, accounts[0]);
         ctx.result = await RPC('assets.broadcast.transfer', transferTx, true);
       })(),
       (async () => {
@@ -82,5 +104,50 @@ describe('core/balance processor', function () {
       })()
     ]);
   });
+
+
+
+  it('send some custom coins again and validate notification via amqp', async () => {
+
+    let amqpInstance = await amqp.connect(config.rabbit.url);
+    let channel = await amqpInstance.createChannel();
+
+    try {
+      await channel.assertExchange('events', 'topic', {durable: false});
+    } catch (e) {
+      channel = await amqpInstance.createChannel();
+    }
+
+    return await Promise.all([
+      (async () => {
+        await Promise.delay(10000);
+        let transferTx = transaction.transfer(accounts[1].address, 100000, 100000, accounts[0], ctx.asset.assetId);
+        ctx.result = await RPC('assets.broadcast.transfer', transferTx, true);
+      })(),
+      (async () => {
+        try {
+          await channel.assertQueue(`app_${config.rabbit.serviceName}_test.balance`);
+          await channel.bindQueue(`app_${config.rabbit.serviceName}_test.balance`, 'events', `${config.rabbit.serviceName}_balance.${accounts[0].address}`);
+        } catch (e) {
+          channel = await amqpInstance.createChannel();
+        }
+
+        return await new Promise(res => {
+          channel.consume(`app_${config.rabbit.serviceName}_test.balance`, res, {noAck: true})
+        })
+      })(),
+      (async () => {
+        let ws = new SockJS('http://localhost:15674/stomp');
+        let client = Stomp.over(ws, {heartbeat: false, debug: false});
+        return await new Promise(res =>
+          client.connect('guest', 'guest', () => {
+            client.subscribe(`/exchange/events/${config.rabbit.serviceName}_balance.${accounts[0].address}`, res)
+          })
+        );
+      })()
+    ]);
+  });
+
+
 
 });
