@@ -42,7 +42,7 @@ describe('core/balance processor', function () {
     expect(ctx.result.id).to.be.string;
   });
 
-  it('send some eth again and validate notification via amqp', async () => {
+  it('send some waves again and validate notification via amqp', async () => {
 
     let amqpInstance = await amqp.connect(config.rabbit.url);
     let channel = await amqpInstance.createChannel();
