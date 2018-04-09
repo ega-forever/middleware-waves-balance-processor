@@ -21,7 +21,7 @@ install:
 
 before_script:
     - cd $TRAVIS_BUILD_DIR/node_modules/middleware_waves.blockProcessor && npm install
-    - cd $TRAVIS_BUILD_DIR/node_modules/middleware_waves.blockProcessor/tests/node && java -jar waves.jar waves-devnet.conf > /dev/null &
+    - cd $TRAVIS_BUILD_DIR/node_modules/middleware_waves.blockProcessor/tests/node && java -jar waves.js waves-devnet.conf > /dev/null &
     - sleep 30 && cd $TRAVIS_BUILD_DIR/node_modules/middleware_waves.blockProcessor && pm2 start index.js
     - cd $TRAVIS_BUILD_DIR && pm2 start index.js
 
@@ -31,7 +31,6 @@ script:
 after_script:
   - pm2 logs --nostream
   - pm2 kill && pkill PM2
-
 
 after_success:
   - FULL_GCR_KEY="-----BEGIN PRIVATE KEY-----\n"$GCR_KEY"\n-----END PRIVATE KEY-----\n"
@@ -44,10 +43,15 @@ after_success:
     elif [ "$TRAVIS_TAG" != "" ]; then
       IMAGE_TAG_NAME="develop"
     fi;
-  - docker build --quiet -t gcr.io/deep-wares-144610/middleware-waves:$IMAGE_TAG_NAME .
-  - docker push gcr.io/deep-wares-144610/middleware-waves:$IMAGE_TAG_NAME
-
-
+  - IMAGE_TAG_NAME="latest"
+  - |
+    if [ "$TRAVIS_BRANCH" == "master" ]; then
+      travis_wait 30 docker build -t gcr.io/deep-wares-144610/$TRAVIS_BRANCH/middleware-ethereum:$IMAGE_TAG_NAME --build-arg RELEASE=latest .
+      docker push gcr.io/deep-wares-144610/$TRAVIS_BRANCH/middleware-ethereum:$IMAGE_TAG_NAME
+    elif [ "$TRAVIS_BRANCH" == "develop" ]; then
+      travis_wait 30 docker build -t gcr.io/deep-wares-144610/$TRAVIS_BRANCH/middleware-ethereum:$IMAGE_TAG_NAME --build-arg RELEASE=develop .
+      docker push gcr.io/deep-wares-144610/$TRAVIS_BRANCH/middleware-ethereum:$IMAGE_TAG_NAME
+    fi;
 
 notifications:
   email: false
