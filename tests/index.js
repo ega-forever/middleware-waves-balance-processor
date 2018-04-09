@@ -1,153 +1,212 @@
-require('dotenv/config');
-
-const config = require('../config'),
-  awaitLastBlock = require('./helpers/awaitLastBlock'),
-  accounts = require('./factories/accountFactory'),
-  transaction = require('./utils/transaction'),
-  RPC = require('../utils/RPC'),
-  mongoose = require('mongoose'),
-  _ = require('lodash'),
-  expect = require('chai').expect,
-  SockJS = require('sockjs-client'),
+const config = require('./config'),
   Promise = require('bluebird'),
+  mongoose = require('mongoose');
+
+mongoose.Promise = Promise;
+mongoose.accounts = mongoose.createConnection(config.mongo.accounts.uri);
+mongoose.connect(config.mongo.data.uri, {useMongoClient: true});
+
+const expect = require('chai').expect,
+  SockJS = require('sockjs-client'),
   accountModel = require('../models/accountModel'),
   amqp = require('amqplib'),
+  WebSocket = require('ws'),
+  saveAccountForAddress = require('./helpers/saveAccountForAddress'),
+  connectToQueue = require('./helpers/connectToQueue'),
+  clearQueues = require('./helpers/clearQueues'),
+  consumeMessages = require('./helpers/consumeMessages'),
+  consumeStompMessages = require('./helpers/consumeStompMessages'),
+  requests = require('./services/nodeRequests'),
   Stomp = require('webstomp-client'),
-  ctx = {};
+  BigNumber = require('bignumber.js');
+  ASSET_NAME = 'LLLLLLLLLLL',
+  createIssue = require('./helpers/createIssue');
+
+let accounts, amqpInstance, assetId;
 
 describe('core/balance processor', function () {
 
   before(async () => {
-    mongoose.Promise = Promise;
-    mongoose.connect(config.mongo.uri, {useMongoClient: true});
+    await accountModel.remove();
+    amqpInstance = await amqp.connect(config.rabbit.url);
 
-    return await awaitLastBlock();
+    accounts = config.dev.accounts;
+    await saveAccountForAddress(accounts[0]);
+    await clearQueues(amqpInstance);
+    assetId = await createIssue(ASSET_NAME, accounts[0]);
+
   });
 
-  after(() => {
+  after(async () => {
     return mongoose.disconnect();
   });
 
-  it('remove account to mongo', async () => {
-    await accountModel.remove({address: accounts[0].address});
+  afterEach(async () => {
+      await clearQueues(amqpInstance);
   });
 
-  it('add account to mongo', async () => {
-    await new accountModel({address: accounts[0].address}).save();
-  });
+  it('send 100 waves from account0 to account1 and validate message', async () => {
+    const initBalance = new BigNumber(await requests.getBalanceByAddress(accounts[0]));
 
-  it('send some waves from 0 account to account 1', async () => {
+    const checkMessage = (content) => {
+      expect(content).to.contain.all.keys(
+        'address',
+        'balance',
+        'assets',
+        'tx'
+      );
+      expect(content.address).to.equal(accounts[0]);
+      expect(initBalance.minus(content.balance).toNumber()).to.greaterThan(0);
+      expect(content.tx.id).to.equal(transferTx.id);
+    };
 
-    let transferTx = transaction.transfer(accounts[1].address, 100000, 100000, accounts[0]);
-    ctx.result = await RPC('assets.broadcast.transfer', transferTx, true);
-    expect(ctx.result.id).to.be.string;
-  });
-
-  it('create custom asset from 0 account to account 1', async () => {
-
-    let name = _.chain(new Array(10))
-      .map(c => _.random(10, 35).toString(36))
-      .join('')
-      .value();
-
-    let issueTx = transaction.asset(name, 'description', accounts[0], 100000000, 3, 100000000000, false);
-    ctx.asset = await RPC('assets.broadcast.issue', issueTx, true);
-    expect(ctx.asset.id).to.be.string;
-  });
-
-  it('send some custom coins from 0 account to account 1', async () => {
-    await awaitLastBlock();
-    await Promise.delay(5000);
-    await awaitLastBlock();
-    let transferTx = transaction.transfer(accounts[1].address, 100000, 100000, accounts[0], ctx.asset.assetId);
-    ctx.result = await RPC('assets.broadcast.transfer', transferTx, true);
-    expect(ctx.result.id).to.be.string;
-  });
-
-  it('send some waves again and validate notification via amqp', async () => {
-
-    let amqpInstance = await amqp.connect(config.rabbit.url);
-    let channel = await amqpInstance.createChannel();
-
-    try {
-      await channel.assertExchange('events', 'topic', {durable: false});
-    } catch (e) {
-      channel = await amqpInstance.createChannel();
-    }
+    const transferTx = await requests.signTransaction(
+      config.dev.apiKey, accounts[1], 100, accounts[0]);
 
     return await Promise.all([
-      (async () => {
-        await Promise.delay(10000);
-        let transferTx = transaction.transfer(accounts[1].address, 100000, 100000, accounts[0]);
-        ctx.result = await RPC('assets.broadcast.transfer', transferTx, true);
+      (async() => {
+         await requests.sendTransaction(config.dev.apiKey, transferTx);
       })(),
       (async () => {
-        try {
-          await channel.assertQueue(`app_${config.rabbit.serviceName}_test.balance`);
-          await channel.bindQueue(`app_${config.rabbit.serviceName}_test.balance`, 'events', `${config.rabbit.serviceName}_balance.${accounts[0].address}`);
-        } catch (e) {
-          channel = await amqpInstance.createChannel();
-        }
+        const channel = await amqpInstance.createChannel();  
+        await connectToQueue(channel);
+        return await consumeMessages(2, channel, (message) => {
+          const content = JSON.parse(message.content);
+          if (content.tx.id === transferTx.id)
+            return checkMessage(content);
+        });
+      })(),
+      (async () => {
+        const ws = new WebSocket('ws://localhost:15674/ws');
+        const client = Stomp.over(ws, {heartbeat: false, debug: false});
+        return await consumeStompMessages(2, client, (message) => {
+          const content = JSON.parse(message.body);
+          if (content.tx.id === transferTx.id)
+            return checkMessage(content);
+        });
+      })()
+    ]);
+  });
 
-        return await new Promise(res => {
-          channel.consume(`app_${config.rabbit.serviceName}_test.balance`, res, {noAck: true})
-        })
+  it('send 100 waves from account1 to account0 and validate message', async () => {
+    const initBalance = await requests.getBalanceByAddress(accounts[0]);
+
+    const checkMessage = (content) => {
+      expect(content).to.contain.all.keys(
+        'address',
+        'balance',
+        'assets',
+        'tx'
+      );
+      expect(content.address).to.equal(accounts[0]);
+      expect(content.balance).to.greaterThan(new BigNumber(initBalance).add(100));
+      expect(content.tx.id).to.equal(transferTx.id);
+    };
+
+    const transferTx = await requests.signTransaction(
+      config.dev.apiKey, accounts[1], 100, accounts[0]);
+
+    return await Promise.all([
+      (async() => {
+         await requests.sendTransaction(config.dev.apiKey, transferTx);
       })(),
       (async () => {
-        let ws = new SockJS('http://localhost:15674/stomp');
-        let client = Stomp.over(ws, {heartbeat: false, debug: false});
-        return await new Promise(res =>
-          client.connect('guest', 'guest', () => {
-            client.subscribe(`/exchange/events/${config.rabbit.serviceName}_balance.${accounts[0].address}`, res)
-          })
-        );
+        const channel = await amqpInstance.createChannel();  
+        await connectToQueue(channel);
+        return await consumeMessages(2, channel, (message) => {
+          const content = JSON.parse(message.content);
+          if (content.tx.id === transferTx.id)
+            return checkMessage(content);
+        });
       })()
     ]);
   });
 
 
-
-  it('send some custom coins again and validate notification via amqp', async () => {
-
-    let amqpInstance = await amqp.connect(config.rabbit.url);
-    let channel = await amqpInstance.createChannel();
-
-    try {
-      await channel.assertExchange('events', 'topic', {durable: false});
-    } catch (e) {
-      channel = await amqpInstance.createChannel();
-    }
-
-    return await Promise.all([
-      (async () => {
-        await Promise.delay(10000);
-        let transferTx = transaction.transfer(accounts[1].address, 100000, 100000, accounts[0], ctx.asset.assetId);
-        ctx.result = await RPC('assets.broadcast.transfer', transferTx, true);
-      })(),
-      (async () => {
-        try {
-          await channel.assertQueue(`app_${config.rabbit.serviceName}_test.balance`);
-          await channel.bindQueue(`app_${config.rabbit.serviceName}_test.balance`, 'events', `${config.rabbit.serviceName}_balance.${accounts[0].address}`);
-        } catch (e) {
-          channel = await amqpInstance.createChannel();
-        }
-
-        return await new Promise(res => {
-          channel.consume(`app_${config.rabbit.serviceName}_test.balance`, res, {noAck: true})
-        })
-      })(),
-      (async () => {
-        let ws = new SockJS('http://localhost:15674/stomp');
-        let client = Stomp.over(ws, {heartbeat: false, debug: false});
-        return await new Promise(res =>
-          client.connect('guest', 'guest', () => {
-            client.subscribe(`/exchange/events/${config.rabbit.serviceName}_balance.${accounts[0].address}`, res)
-          })
+  it('send 100 assets from account0 to account 1 and validate message', async () => {
+      const initBalance = await requests.getBalanceByAddressAndAsset(accounts[0], assetId);
+      const checkMessage = (content) => {        
+        expect(content).to.contain.all.keys(
+          'address',
+          'balance',
+          'assets',
+          'tx'
         );
-      })()
-    ]);
+        expect(content.address).to.equal(accounts[0]);
+        expect(content.balance).to.greaterThan(initBalance + 100);
+        expect(content.tx.id).to.equal(transferTx.id);
+      };
+  
+      const transferTx = await requests.signAssetTransaction(config.dev.apiKey, accounts[1], 100, accounts[0], assetId);
+  
+      return await Promise.all([
+        (async() => {
+           await requests.sendAssetTransaction(config.dev.apiKey, transferTx);
+           
+        })(),
+        (async () => {
+          const channel = await amqpInstance.createChannel();  
+          await connectToQueue(channel);
+          return await consumeMessages(2, channel, (message) => {
+            const content = JSON.parse(message.content);
+            if (content.tx.id === transferTx.id)
+              return checkMessage(content);
+          });
+        })()
+      ]);
   });
 
 
+  it('send alias transaction and validate message', async () => {
+    const initBalance = await requests.getBalanceByAddress(accounts[0]);
+    const checkMessage = (content) => {        
+      expect(content).to.contain.all.keys(
+        'address',
+        'balance',
+        'assets',
+        'tx'
+      );
+      expect(content.address).to.equal(accounts[0]);
+      expect(content.balance).to.lessThan(initBalance);
+      expect(content.tx.id).to.equal(transferTx.id);
+    };
+
+    const alias = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const transferTx = await requests.signAliasTransaction(config.dev.apiKey, accounts[0], 100000, alias);
+
+    return await Promise.all([
+      (async() => {
+         await requests.sendAliasTransaction(config.dev.apiKey, transferTx);
+         
+      })(),
+      (async () => {
+        const channel = await amqpInstance.createChannel();  
+        await connectToQueue(channel);
+        return await consumeMessages(1, channel, (message) => {
+          const content = JSON.parse(message.content);
+          if (content.tx.id === transferTx.id)
+            return checkMessage(content);
+        });
+      })()
+    ]);
+});
+
+  it('delete accounts and 0 messages', async () => {
+    await accountModel.remove();
+    const transferTx = await requests.signTransaction(
+      config.dev.apiKey, accounts[1], 100, accounts[0]);
+
+    return await Promise.all([
+      (async() => {
+         await requests.sendTransaction(config.dev.apiKey, transferTx);
+      })(),
+      (async () => {
+        await Promise.delay(12000);
+        const channel = await amqpInstance.createChannel();  
+        const queue = await connectToQueue(channel);
+        expect(queue.messageCount).to.equal(0);
+      })()
+    ]);
+  });
 
 });
