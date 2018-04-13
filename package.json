@@ -1,5 +1,5 @@
 {
-  "name": "middleware_eth.balanceProcessor",
+  "name": "middleware_waves.balanceProcessor",
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
@@ -9,25 +9,25 @@
     "dotenv": "^4.0.0",
     "mongoose": "^4.11.11",
     "mongoose-long": "^0.1.1",
-    "request": "^2.83.0",
-    "request-promise": "^4.2.2",
-    "require-all": "^2.2.0"
+    "require-all": "^2.2.0",
+    "sockjs-client": "^1.1.4",
+    "web3": "^0.19.0"
   },
   "scripts": {
     "lint": "node ./node_modules/eslint/bin/eslint.js -c .eslintrc.js --ext .js --fix --ignore-path .eslintignore .",
-    "test": "node ./node_modules/mocha/bin/mocha -t 900000 tests"
+    "test": "node ./node_modules/mocha/bin/mocha -t 90000 tests"
   },
   "author": "",
   "license": "ISC",
   "description": "",
   "devDependencies": {
     "babel-eslint": "^8.0.0",
+    "chai": "^4.1.1",
     "eslint": "^4.6.1",
     "eslint-plugin-chronobank": "github:chronobank/eslint-plugin-chronobank",
-    "chai": "^4.1.1",
+    "middleware-waves-blockprocessor": "github:chronobank/middleware-waves-blockprocessor",
     "mocha": "^3.5.0",
-    "sockjs-client": "^1.1.4",
     "webstomp-client": "^1.0.6",
-    "middleware-eth-blockprocessor": "github:chronobank/middleware-waves-blockprocessor"
+    "ws": "^3.3.3"
   }
 }
