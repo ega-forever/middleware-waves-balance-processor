@@ -4,14 +4,15 @@
   "main": "index.js",
   "dependencies": {
     "amqplib": "^0.5.1",
+    "bignumber.js": "^6.0.0",
     "bluebird": "^3.5.0",
     "bunyan": "^1.8.10",
     "dotenv": "^4.0.0",
     "mongoose": "^4.11.11",
     "mongoose-long": "^0.1.1",
-    "require-all": "^2.2.0",
-    "sockjs-client": "^1.1.4",
-    "web3": "^0.19.0"
+    "request": "^2.85.0",
+    "request-promise": "^4.2.2",
+    "require-all": "^2.2.0"
   },
   "scripts": {
     "lint": "node ./node_modules/eslint/bin/eslint.js -c .eslintrc.js --ext .js --fix --ignore-path .eslintignore .",
@@ -24,8 +25,10 @@
     "babel-eslint": "^8.0.0",
     "chai": "^4.1.1",
     "eslint": "^4.6.1",
+    "bytebuffer": "^5.0.1",
+    "base58-native": "^0.1.4",
+    "axlsign": "github:wavesplatform/curve25519-js",
     "eslint-plugin-chronobank": "github:chronobank/eslint-plugin-chronobank",
-    "middleware-waves-blockprocessor": "github:chronobank/middleware-waves-blockprocessor",
     "mocha": "^3.5.0",
     "webstomp-client": "^1.0.6",
     "ws": "^3.3.3"

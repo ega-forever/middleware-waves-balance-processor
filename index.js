@@ -6,6 +6,10 @@
  * @module Chronobank/waves-balance-processor
  * @requires config
  * @requires models/accountModel
+ * 
+ * Copyright 2017–2018, LaborX PTY
+ * Licensed under the AGPL Version 3 license.
+ * @author Kirill Sergeev <cloudkserg11@gmail.com>
  */
 
 const config = require('./config'),
@@ -51,7 +55,7 @@ let init = async () => {
   channel.consume(`app_${config.rabbit.serviceName}.balance_processor`, async (data) => {
     try {
       let tx = JSON.parse(data.content.toString());
-      const txAccounts = _.filter([tx.sender, tx.recipient], item => item !== undefined);           
+      const txAccounts = _.filter([tx.sender, tx.recipient], item => item !== undefined);        
       let accounts = tx ? await accountModel.find({address: {$in: txAccounts}}) : [];
       for (let account of accounts) {
         if (!tx.assetId) {
@@ -59,19 +63,20 @@ let init = async () => {
           account = await accountModel.findOneAndUpdate(
             {address: account.address}, 
             {$set: {balance: balance}}, 
-            {upsert: true}
-          )
-            .catch(() => {
-            });
+            {upsert: true, new: true}
+          ).catch(log.error);
         } else {
-          const balance = await requests.getBalanceByAddressAndAsset(account.address, tx.assetId);
+          const balance = await requests.getBalanceByAddress(account.address);          
+          const assetBalance = await requests.getBalanceByAddressAndAsset(account.address, tx.assetId);
           account = await accountModel.findOneAndUpdate({address: account.address},
             {$set: {
-              'assets': {
-                [`${tx.assetId}`]: balance
+              balance: balance,
+              assets: {
+                [`${tx.assetId}`]: assetBalance
               }
-            }}, {upsert: true})
+            }}, {upsert: true, new: true})
             .catch(log.error);
+            
         }
 
         await  channel.publish('events', `${config.rabbit.serviceName}_balance.${account.address}`, new Buffer(JSON.stringify({
