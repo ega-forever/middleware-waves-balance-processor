@@ -3,27 +3,31 @@
  * Update balances for accounts, which addresses were specified
  * in received transactions from blockParser via amqp
  *
- * @module Chronobank/eth-balance-processor
+ * @module Chronobank/waves-balance-processor
  * @requires config
  * @requires models/accountModel
  */
 
 const config = require('./config'),
   mongoose = require('mongoose'),
-  accountModel = require('./models/accountModel'),
+  _ = require('lodash'),
+  Promise = require('bluebird');
+
+mongoose.Promise = Promise;
+mongoose.accounts = mongoose.createConnection(config.mongo.accounts.uri, {useMongoClient: true});
+
+
+const accountModel = require('./models/accountModel'),
+  requests = require('./services/nodeRequests'),
   bunyan = require('bunyan'),
-  Promise = require('bluebird'),
-  RPC = require('./utils/RPC'),
   log = bunyan.createLogger({name: 'core.balanceProcessor'}),
   amqp = require('amqplib');
 
-mongoose.Promise = Promise;
-mongoose.connect(config.mongo.uri, {useMongoClient: true});
-
-mongoose.connection.on('disconnected', function () {
+mongoose.accounts.on('disconnected', function () {
   log.error('mongo disconnected!');
   process.exit(0);
 });
+
 
 let init = async () => {
   let conn = await amqp.connect(config.rabbit.url)
@@ -47,25 +51,27 @@ let init = async () => {
   channel.consume(`app_${config.rabbit.serviceName}.balance_processor`, async (data) => {
     try {
       let tx = JSON.parse(data.content.toString());
-
-      if(tx.type !== 4)
-        return channel.ack(data);
-
-      let accounts = tx ? await accountModel.find({address: {$in: [tx.sender, tx.recipient]}}) : [];
-
+      const txAccounts = _.filter([tx.sender, tx.recipient], item => item !== undefined);           
+      let accounts = tx ? await accountModel.find({address: {$in: txAccounts}}) : [];
       for (let account of accounts) {
         if (!tx.assetId) {
-          let result = await RPC(`addresses.balance.${account.address}`);
-          account = await accountModel.findOneAndUpdate({address: account.address}, {$set: {balance: result.balance}}, {upsert: true})
+          const balance = await requests.getBalanceByAddress(account.address);
+          account = await accountModel.findOneAndUpdate(
+            {address: account.address}, 
+            {$set: {balance: balance}}, 
+            {upsert: true}
+          )
             .catch(() => {
             });
-        }
-
-        if (tx.assetId) {
-          let result = await RPC(`addresses.balance.${account.address}`);
-          account = await accountModel.findOneAndUpdate({address: account.address}, {$set: {[`assets.${tx.assetId}`]: result.balance}}, {upsert: true})
-            .catch(() => {
-            });
+        } else {
+          const balance = await requests.getBalanceByAddressAndAsset(account.address, tx.assetId);
+          account = await accountModel.findOneAndUpdate({address: account.address},
+            {$set: {
+              'assets': {
+                [`${tx.assetId}`]: balance
+              }
+            }}, {upsert: true})
+            .catch(log.error);
         }
 
         await  channel.publish('events', `${config.rabbit.serviceName}_balance.${account.address}`, new Buffer(JSON.stringify({
