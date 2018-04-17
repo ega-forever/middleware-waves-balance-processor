@@ -1,3 +1,9 @@
+/**
+ * 
+ * Copyright 2017–2018, LaborX PTY
+ * Licensed under the AGPL Version 3 license.
+ * @author Kirill Sergeev <cloudkserg11@gmail.com>
+ */
 const request = require('request-promise'),
   config = require('../config'),
   _ = require('lodash'),
@@ -30,12 +36,22 @@ const errorHandler = async (err) => {
   log.error(err);
 };
 
-
+/**
+ * 
+ * @param {String} address
+ * @return {Number} 
+ */
 const getBalanceByAddress = async (address) => {
   const result = await get(`/addresses/balance/${address}`);
   return _.get(result, 'balance', null);
 };
 
+/**
+ * 
+ * @param {String} address 
+ * @param {String} assetId
+ * @return {Number} 
+ */
 const getBalanceByAddressAndAsset = async (address, assetId) => {
   const result = await get(`/assets/balance/${address}/${assetId}`);
   return _.get(result, 'balance', null);
