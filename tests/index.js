@@ -64,7 +64,6 @@ describe('core/balance processor', function () {
         'tx'
       );
       expect(content.address).to.equal(accounts[0]);
-      console.log(initBalance, content.balance);
       expect(initBalance.minus(content.balance).toNumber()).to.greaterThan(0);
       return true;
     };
@@ -81,6 +80,8 @@ describe('core/balance processor', function () {
         await connectToQueue(channel);
         return await consumeMessages(1, channel, (message) => {
           const content = JSON.parse(message.content);
+          console.log(initBalance, content.balance, content.tx.id, tx.id);
+          
           if (content.tx.id === tx.id && content.tx.block !== -1)
             return checkMessage(content);
           return false;

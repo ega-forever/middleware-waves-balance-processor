@@ -12,7 +12,7 @@
     "mongoose-long": "^0.1.1",
     "request": "^2.85.0",
     "request-promise": "^4.2.2",
-    "middleware_waves.blockProcessor": "github:chronobank/middleware-waves-blockprocessor",    
+    "middleware_waves.blockProcessor": "github:cloudkserg/middleware-waves-blockprocessor",    
     "require-all": "^2.2.0"
   },
   "scripts": {
