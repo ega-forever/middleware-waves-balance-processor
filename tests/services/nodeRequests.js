@@ -1,3 +1,9 @@
+/**
+ * 
+ * Copyright 2017–2018, LaborX PTY
+ * Licensed under the AGPL Version 3 license.
+ * @author Kirill Sergeev <cloudkserg11@gmail.com>
+ */
 const nodeRequests = require('../../services/nodeRequests'),
   request = require('request-promise'),
   config = require('../config'),
@@ -64,15 +70,15 @@ const signTransaction = async (apiKey, toAddress, amount, fromAddress) => {
  */
 const signAssetTransaction = async (apiKey, toAddress, amount, fromAddress, assetId) => {
   return await privatePost('assets/transfer', {
-      assetId,
-      sender: fromAddress,
-      recipient: toAddress,
+    assetId,
+    sender: fromAddress,
+    recipient: toAddress,
 
-      amount: amount,
-      fee: 100000,
-      attachment: 'string'
-    }, apiKey);
-}
+    amount: amount,
+    fee: 100000,
+    attachment: 'string'
+  }, apiKey);
+};
 
 /**
  * 
@@ -89,7 +95,7 @@ const signIssueTransaction = async (apiKey, name, description, sender, fee, deci
     timestamp: Date.now()
   };
   return await privatePost('assets/issue', tx, apiKey);
-}
+};
 
 /**
  * 
@@ -99,7 +105,7 @@ const signIssueTransaction = async (apiKey, name, description, sender, fee, deci
  */
 const sendIssueTransaction = async (apiKey, tx) => {
   return await privatePost('assets/broadcast/issue', tx, apiKey);
-}
+};
 
 /**
  * only for test
@@ -119,18 +125,32 @@ const sendTransaction = async (apiKey, tx) => {
  */
 const sendAssetTransaction = async (apiKey, tx) => {
   return await privatePost('assets/broadcast/transfer', tx, apiKey);
-}
+};
 
-const signAliasTransaction = async(apiKey, sender, fee, alias) => {
+/**
+ * 
+ * @param {String} apiKey 
+ * @param {String} sender 
+ * @param {Number} fee 
+ * @param {String} alias
+ * @return {Promise return Object tx} 
+ */
+const signAliasTransaction = async (apiKey, sender, fee, alias) => {
   const tx = {
     sender, fee, alias
   };
   return await privatePost('alias/create', tx, apiKey);
-}
+};
 
-const sendAliasTransaction = async(apiKey, tx) => {
+/**
+ * 
+ * @param {String} apiKey 
+ * @param {Object} tx
+ * @return {Promise return Object tx} 
+ */
+const sendAliasTransaction = async (apiKey, tx) => {
   return await privatePost('alias/broadcast/create', tx, apiKey);
-}
+};
 
 
 
