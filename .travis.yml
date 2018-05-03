@@ -20,7 +20,8 @@ install:
   - npm install -g pm2
 
 before_script:
-    - if [ "$TRAVIS_BRANCH" == "develop" ]; then
+    - |
+    if [ "$TRAVIS_BRANCH" == "develop" ]; then
       cd $TRAVIS_BUILD_DIR/ && git clone -b develop https://github.com/chronobank/middleware-waves-blockprocessor 
     else
       cd $TRAVIS_BUILD_DIR/ && git clone https://github.com/chronobank/middleware-waves-blockprocessor 
