@@ -3,7 +3,7 @@ dist: trusty
 os: linux
 group: stable
 language: node_js
-node_js: 7.6.0
+node_js: 8.11.1
 
 services:
   - mongodb
@@ -46,11 +46,11 @@ after_success:
   - IMAGE_TAG_NAME="latest"
   - |
     if [ "$TRAVIS_BRANCH" == "master" ]; then
-      travis_wait 30 docker build -t gcr.io/deep-wares-144610/$TRAVIS_BRANCH/middleware-ethereum:$IMAGE_TAG_NAME --build-arg RELEASE=latest .
-      docker push gcr.io/deep-wares-144610/$TRAVIS_BRANCH/middleware-ethereum:$IMAGE_TAG_NAME
+      travis_wait 30 docker build -t gcr.io/deep-wares-144610/$TRAVIS_BRANCH/middleware-waves:$IMAGE_TAG_NAME --build-arg RELEASE=latest .
+      docker push gcr.io/deep-wares-144610/$TRAVIS_BRANCH/middleware-waves:$IMAGE_TAG_NAME
     elif [ "$TRAVIS_BRANCH" == "develop" ]; then
-      travis_wait 30 docker build -t gcr.io/deep-wares-144610/$TRAVIS_BRANCH/middleware-ethereum:$IMAGE_TAG_NAME --build-arg RELEASE=develop .
-      docker push gcr.io/deep-wares-144610/$TRAVIS_BRANCH/middleware-ethereum:$IMAGE_TAG_NAME
+      travis_wait 30 docker build -t gcr.io/deep-wares-144610/$TRAVIS_BRANCH/middleware-waves:$IMAGE_TAG_NAME --build-arg RELEASE=develop .
+      docker push gcr.io/deep-wares-144610/$TRAVIS_BRANCH/middleware-waves:$IMAGE_TAG_NAME
     fi;
 
 notifications:
