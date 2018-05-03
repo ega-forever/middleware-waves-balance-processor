@@ -19,8 +19,8 @@
     "lint": "node ./node_modules/eslint/bin/eslint.js -c .eslintrc.js --ext .js --fix --ignore-path .eslintignore .",
     "test": "node ./node_modules/mocha/bin/mocha -t 90000 tests"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "chronobank",
+  "license": "AGPL-3.0",
   "description": "",
   "devDependencies": {
     "babel-eslint": "^8.0.0",
@@ -30,7 +30,6 @@
     "base58-native": "^0.1.4",
     "axlsign": "github:wavesplatform/curve25519-js",
     "eslint-plugin-chronobank": "github:chronobank/eslint-plugin-chronobank",
-    "middleware-waves-blockprocessor": "github:chronobank/middleware-waves-blockprocessor",
     "mocha": "^3.5.0",
     "webstomp-client": "^1.0.6",
     "ws": "^3.3.3"

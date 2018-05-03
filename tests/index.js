@@ -64,6 +64,7 @@ describe('core/balance processor', function () {
         'tx'
       );
       expect(content.address).to.equal(accounts[0]);
+      console.log(initBalance, content.balance);
       expect(initBalance.minus(content.balance).toNumber()).to.greaterThan(0);
       return true;
     };
