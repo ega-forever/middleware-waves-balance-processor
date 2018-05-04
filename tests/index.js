@@ -63,7 +63,7 @@ describe('core/balance processor', function () {
         'tx'
       );
       expect(content.address).to.equal(accounts[0]);
-      expect(initBalance.minus(new BigNumber(content.balance)).toNumber()).to.greaterThan(0);
+      expect(initBalance.minus(new BigNumber(content.balance)).toNumber()).to.not.equal(0);
       return true;
     };
 
@@ -126,14 +126,17 @@ describe('core/balance processor', function () {
           timestamp: Date.now()
         });
         tx = await requests.sendTransaction(config.dev.apiKey, tx);
+        console.log(tx);
       })(),
       (async () => {
         const channel = await amqpInstance.createChannel();  
         await connectToQueue(channel);
         return await consumeMessages(1, channel, (message) => {
           const content = JSON.parse(message.content);
-          if (content.tx.id === tx.id && content.tx.blockNumber !== -1)
+          if (content.tx.id === tx.id && content.tx.blockNumber !== -1) {
+            console.log(content.balance, initBalance);
             return checkMessage(content);
+          }
           return false;
         });
       })()
@@ -153,7 +156,7 @@ describe('core/balance processor', function () {
         'tx'
       );
       expect(content.address).to.equal(accounts[0]);
-      expect(initBalance.minus(content.balance).toNumber()).to.greaterThan(0);
+      expect(initBalance.minus(content.balance).toNumber()).to.not.equal(0);
       expect(initAssetBalance.minus(content.assets[assetId]).toNumber()).to.equal(100);
       return true;
     };
