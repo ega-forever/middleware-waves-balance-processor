@@ -33,6 +33,7 @@ const accountModel = require('./models/accountModel'),
  * @param {Object of RabbitMqChannel} channel
  */
 const processTx = async (tx, channel) => {
+  log.info('balance', tx.id);
   const txAccounts = _.filter([tx.sender, tx.recipient], item => item !== undefined);        
   let accounts = tx ? await accountModel.find({address: {$in: txAccounts}}) : [];
   for (let account of accounts) {
@@ -95,9 +96,9 @@ let init = async () => {
   channel.consume(`app_${config.rabbit.serviceName}.balance_processor`, async (data) => {
     try {
       let tx = JSON.parse(data.content.toString());
+      log.info('balance', tx.id);
       if (tx.blockNumber !== -1) 
         await processTx(tx, channel);
-
     } catch (e) {
       log.error(e);
     }
