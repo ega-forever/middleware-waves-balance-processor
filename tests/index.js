@@ -145,43 +145,43 @@ describe('core/balance processor', function () {
   });
 
 
-  // it('send 100 assets from account0 to account 1 and validate message', async () => {
-  //   const initAssetBalance = new BigNumber(await requests.getBalanceByAddressAndAsset(accounts[0], assetId));
-  //   const initBalance = new BigNumber(await requests.getBalanceByAddress(accounts[0]));
+  it('send 100 assets from account0 to account 1 and validate message', async () => {
+    const initAssetBalance = new BigNumber(await requests.getBalanceByAddressAndAsset(accounts[0], assetId));
+    const initBalance = new BigNumber(await requests.getBalanceByAddress(accounts[0]));
     
-  //   const checkMessage = (content) => {        
-  //     expect(content).to.contain.all.keys(
-  //       'address',
-  //       'balance',
-  //       'assets',
-  //       'tx'
-  //     );
-  //     expect(content.address).to.equal(accounts[0]);
-  //     expect(initBalance.minus(content.balance).toNumber()).to.not.equal(0);
-  //     expect(initAssetBalance.minus(content.assets[assetId]).toNumber()).to.equal(100);
-  //     return true;
-  //   };
+    const checkMessage = (content) => {        
+      expect(content).to.contain.all.keys(
+        'address',
+        'balance',
+        'assets',
+        'tx'
+      );
+      expect(content.address).to.equal(accounts[0]);
+      expect(initBalance.minus(content.balance).toNumber()).to.not.equal(0);
+      expect(initAssetBalance.minus(content.assets[assetId]).toNumber()).to.equal(100);
+      return true;
+    };
 
-  //   const tx = await requests.signAssetTransaction(config.dev.apiKey, accounts[1], 100, accounts[0], assetId);
+    const tx = await requests.signAssetTransaction(config.dev.apiKey, accounts[1], 100, accounts[0], assetId);
 
-  //   return await Promise.all([
-  //     (async () => {
-  //       await requests.sendAssetTransaction(config.dev.apiKey, tx);
-  //     })(),
-  //     (async () => {
-  //       const channel = await amqpInstance.createChannel();  
-  //       await connectToQueue(channel);
-  //       return await consumeMessages(1, channel, (message) => {
-  //         const content = JSON.parse(message.content);
-  //         console.log(content.tx.id, tx.id, content.tx);
+    return await Promise.all([
+      (async () => {
+        await requests.sendAssetTransaction(config.dev.apiKey, tx);
+      })(),
+      (async () => {
+        const channel = await amqpInstance.createChannel();  
+        await connectToQueue(channel);
+        return await consumeMessages(1, channel, (message) => {
+          const content = JSON.parse(message.content);
+          console.log(content.tx.id, tx.id, content.tx);
           
-  //         if (content.tx.id === tx.id && content.tx.blockNumber !== -1)
-  //           return checkMessage(content);
-  //         return false;
-  //       });
-  //     })()
-  //   ]);
-  // });
+          if (content.tx.id === tx.id && content.tx.blockNumber !== -1)
+            return checkMessage(content);
+          return false;
+        });
+      })()
+    ]);
+  });
 
 
   // it('send alias transaction and validate message', async () => {
