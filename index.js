@@ -27,6 +27,46 @@ const accountModel = require('./models/accountModel'),
   log = bunyan.createLogger({name: 'core.balanceProcessor'}),
   amqp = require('amqplib');
 
+
+/**
+ * @param {Object of TxModel} tx
+ * @param {Object of RabbitMqChannel} channel
+ */
+const processTx = async (tx, channel) => {
+  const txAccounts = _.filter([tx.sender, tx.recipient], item => item !== undefined);        
+  let accounts = tx ? await accountModel.find({address: {$in: txAccounts}}) : [];
+  for (let account of accounts) {
+    if (!tx.assetId) {
+      const balance = await requests.getBalanceByAddress(account.address);
+      account = await accountModel.findOneAndUpdate(
+        {address: account.address}, 
+        {$set: {balance: balance}}, 
+        {upsert: true, new: true}
+      ).catch(log.error);
+      
+    } else {
+      const balance = await requests.getBalanceByAddress(account.address);          
+      const assetBalance = await requests.getBalanceByAddressAndAsset(account.address, tx.assetId);
+      account = await accountModel.findOneAndUpdate({address: account.address},
+        {$set: {
+          balance: balance,
+          assets: {
+            [`${tx.assetId}`]: assetBalance
+          }
+        }}, {upsert: true, new: true})
+        .catch(log.error);
+      
+    }
+    await  channel.publish('events', `${config.rabbit.serviceName}_balance.${account.address}`, new Buffer(JSON.stringify({
+      address: account.address,
+      balance: account.balance,
+      assets: account.assets,
+      tx: tx
+    })));
+  }
+};
+
+
 mongoose.accounts.on('disconnected', function () {
   log.error('mongo disconnected!');
   process.exit(0);
@@ -55,39 +95,8 @@ let init = async () => {
   channel.consume(`app_${config.rabbit.serviceName}.balance_processor`, async (data) => {
     try {
       let tx = JSON.parse(data.content.toString());
-console.log('balance', tx);
-      
-      const txAccounts = _.filter([tx.sender, tx.recipient], item => item !== undefined);        
-      let accounts = tx ? await accountModel.find({address: {$in: txAccounts}}) : [];
-      for (let account of accounts) {
-        if (!tx.assetId) {
-          const balance = await requests.getBalanceByAddress(account.address);
-          account = await accountModel.findOneAndUpdate(
-            {address: account.address}, 
-            {$set: {balance: balance}}, 
-            {upsert: true, new: true}
-          ).catch(log.error);
-          
-        } else {
-          const balance = await requests.getBalanceByAddress(account.address);          
-          const assetBalance = await requests.getBalanceByAddressAndAsset(account.address, tx.assetId);
-          account = await accountModel.findOneAndUpdate({address: account.address},
-            {$set: {
-              balance: balance,
-              assets: {
-                [`${tx.assetId}`]: assetBalance
-              }
-            }}, {upsert: true, new: true})
-            .catch(log.error);
-          
-        }
-        await  channel.publish('events', `${config.rabbit.serviceName}_balance.${account.address}`, new Buffer(JSON.stringify({
-          address: account.address,
-          balance: account.balance,
-          assets: account.assets,
-          tx: tx
-        })));
-      }
+      if (tx.blockNumber !== -1) 
+        await processTx(tx, channel);
 
     } catch (e) {
       log.error(e);
