@@ -126,13 +126,14 @@ describe('core/balance processor', function () {
           timestamp: Date.now()
         });
         tx = await requests.sendTransaction(config.dev.apiKey, tx);
-        console.log(tx);
       })(),
       (async () => {
         const channel = await amqpInstance.createChannel();  
         await connectToQueue(channel);
         return await consumeMessages(1, channel, (message) => {
           const content = JSON.parse(message.content);
+          console.log(content.tx);
+          
           if (content.tx.id === tx.id && content.tx.blockNumber !== -1) {
             console.log(content.balance, initBalance);
             return checkMessage(content);
