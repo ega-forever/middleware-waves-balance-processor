@@ -33,7 +33,7 @@ const accountModel = require('./models/accountModel'),
  * @param {Object of RabbitMqChannel} channel
  */
 const processTx = async (tx, channel) => {
-  log.info('balance', tx.id);
+  log.info('in balance', tx.id);
   const txAccounts = _.filter([tx.sender, tx.recipient], item => item !== undefined);        
   let accounts = tx ? await accountModel.find({address: {$in: txAccounts}}) : [];
   for (let account of accounts) {
