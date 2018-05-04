@@ -132,7 +132,6 @@ describe('core/balance processor', function () {
         await connectToQueue(channel);
         return await consumeMessages(1, channel, (message) => {
           const content = JSON.parse(message.content);
-          console.log(content.tx);
           
           if (content.tx.id === tx.id && content.tx.blockNumber !== -1) {
             console.log(content.balance, initBalance);
@@ -173,6 +172,8 @@ describe('core/balance processor', function () {
         await connectToQueue(channel);
         return await consumeMessages(1, channel, (message) => {
           const content = JSON.parse(message.content);
+          console.log(content.tx.id, tx.id, content.tx);
+          
           if (content.tx.id === tx.id && content.tx.blockNumber !== -1)
             return checkMessage(content);
           return false;
