@@ -163,6 +163,8 @@ describe('core/balance processor', function () {
     };
 
     const tx = await requests.signAssetTransaction(config.dev.apiKey, accounts[1], 100, accounts[0], assetId);
+    console.log(tx.id);
+    
 
     return await Promise.all([
       (async () => {
