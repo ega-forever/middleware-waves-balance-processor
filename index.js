@@ -65,6 +65,8 @@ let init = async () => {
             {$set: {balance: balance}}, 
             {upsert: true, new: true}
           ).catch(log.error);
+        console.log(tx.id, account.address, balance, account.balance.toNumber(), tx.blockNumber);
+          
         } else {
           const balance = await requests.getBalanceByAddress(account.address);          
           const assetBalance = await requests.getBalanceByAddressAndAsset(account.address, tx.assetId);
