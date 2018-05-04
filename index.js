@@ -55,6 +55,8 @@ let init = async () => {
   channel.consume(`app_${config.rabbit.serviceName}.balance_processor`, async (data) => {
     try {
       let tx = JSON.parse(data.content.toString());
+console.log('balance', tx);
+      
       const txAccounts = _.filter([tx.sender, tx.recipient], item => item !== undefined);        
       let accounts = tx ? await accountModel.find({address: {$in: txAccounts}}) : [];
       for (let account of accounts) {
@@ -77,9 +79,8 @@ let init = async () => {
               }
             }}, {upsert: true, new: true})
             .catch(log.error);
-            
+          
         }
-
         await  channel.publish('events', `${config.rabbit.serviceName}_balance.${account.address}`, new Buffer(JSON.stringify({
           address: account.address,
           balance: account.balance,
