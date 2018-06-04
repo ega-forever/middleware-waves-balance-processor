@@ -37,9 +37,9 @@ The options are presented below:
 | MONGO_ACCOUNTS_COLLECTION_PREFIX   | the collection prefix for accounts collection in mongo (If not specified, then the default MONGO_COLLECTION_PREFIX will be used)
 | RABBIT_URI   | rabbitmq URI connection string
 | RABBIT_SERVICE_NAME   | namespace for all rabbitmq queues, like 'app_waves_transaction'
-| NETWORK   | network name (alias)- is used for connecting via ipc (see block processor section)
+| NETWORK   | network name (alias)- is used for connecting via http node (see block processor section)
 | RPC   | the path to waves rest api for get balance for user
-| BLOCK_GENERATION_TIME | generation time for bloc
+| BLOCK_GENERATION_TIME | generation time for block
 
 License
 ----
