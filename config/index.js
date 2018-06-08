@@ -1,5 +1,5 @@
 /**
- * Chronobank/eth-balance-processor configuration
+ * Chronobank/waves-balance-processor configuration
  * @module config
  * @returns {Object} Configuration
  * 
