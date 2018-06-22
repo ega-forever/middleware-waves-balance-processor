@@ -4,7 +4,7 @@
   "main": "index.js",
   "dependencies": {
     "amqplib": "^0.5.1",
-    "bignumber.js": "^6.0.0",
+    "middleware-common-components": "github:ChronoBank/middleware-common-components",
     "bluebird": "^3.5.0",
     "bunyan": "^1.8.10",
     "dotenv": "^4.0.0",
@@ -22,12 +22,10 @@
   "license": "AGPL-3.0",
   "description": "",
   "devDependencies": {
+    "middleware_waves.blockProcessor": "github:chronobank/middleware-waves-blockprocessor#feature/MD-403",
     "babel-eslint": "^8.0.0",
     "chai": "^4.1.1",
     "eslint": "^4.6.1",
-    "bytebuffer": "^5.0.1",
-    "base58-native": "^0.1.4",
-    "axlsign": "github:wavesplatform/curve25519-js",
     "eslint-plugin-chronobank": "github:chronobank/eslint-plugin-chronobank",
     "mocha": "^3.5.0",
     "webstomp-client": "^1.0.6",
