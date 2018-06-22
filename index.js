@@ -6,7 +6,7 @@
  * @module Chronobank/waves-balance-processor
  * @requires config
  * @requires models/accountModel
- * 
+ *
  * Copyright 2017–2018, LaborX PTY
  * Licensed under the AGPL Version 3 license.
  * @author Kirill Sergeev <cloudkserg11@gmail.com>
@@ -14,91 +14,76 @@
 
 const config = require('./config'),
   mongoose = require('mongoose'),
-  _ = require('lodash'),
-  Promise = require('bluebird');
-
-mongoose.Promise = Promise;
-mongoose.accounts = mongoose.createConnection(config.mongo.accounts.uri, {useMongoClient: true});
-
-
-const accountModel = require('./models/accountModel'),
-  requests = require('./services/nodeRequests'),
+  Promise = require('bluebird'),
+  providerService = require('./services/providerService'),
+  accountModel = require('./models/accountModel'),
+  getUpdatedBalance = require('./utils/balance/getUpdatedBalance'),
   bunyan = require('bunyan'),
   log = bunyan.createLogger({name: 'core.balanceProcessor'}),
   amqp = require('amqplib');
 
+const TX_QUEUE = `${config.rabbit.serviceName}_transaction`;
 
-/**
- * @param {Object of TxModel} tx
- * @param {Object of RabbitMqChannel} channel
- */
-const processTx = async (tx, channel) => {
-  log.info('in balance', tx.id);
-  const txAccounts = _.filter([tx.sender, tx.recipient], item => item !== undefined);        
-  let accounts = tx ? await accountModel.find({address: {$in: txAccounts}}) : [];
-  for (let account of accounts) {
-    if (!tx.assetId) {
-      const balance = await requests.getBalanceByAddress(account.address);
-      account = await accountModel.findOneAndUpdate(
-        {address: account.address}, 
-        {$set: {balance: balance}}, 
-        {upsert: true, new: true}
-      ).catch(log.error);
-      
-    } else {
-      const balance = await requests.getBalanceByAddress(account.address);          
-      const assetBalance = await requests.getBalanceByAddressAndAsset(account.address, tx.assetId);
-      account = await accountModel.findOneAndUpdate({address: account.address},
-        {$set: {
-          balance: balance,
-          assets: {
-            [`${tx.assetId}`]: assetBalance
-          }
-        }}, {upsert: true, new: true})
-        .catch(log.error);
-      
-    }
-    await  channel.publish('events', `${config.rabbit.serviceName}_balance.${account.address}`, new Buffer(JSON.stringify({
-      address: account.address,
-      balance: account.balance,
-      assets: account.assets,
-      tx: tx
-    })));
-  }
-};
-
-
-mongoose.accounts.on('disconnected', function () {
-  log.error('mongo disconnected!');
-  process.exit(0);
-});
-
+mongoose.Promise = Promise;
+mongoose.connect(config.mongo.accounts.uri, {useMongoClient: true});
 
 let init = async () => {
-  let conn = await amqp.connect(config.rabbit.url)
-    .catch(() => {
-      log.error('rabbitmq is not available!');
-      process.exit(0);
-    });
+
+  mongoose.connection.on('disconnected', () => {
+    throw new Error('mongo disconnected!');
+  });
+
+  let conn = await amqp.connect(config.rabbit.url);
 
   let channel = await conn.createChannel();
 
   channel.on('close', () => {
-    log.error('rabbitmq process has finished!');
-    process.exit(0);
+    throw new Error('rabbitmq process has finished!');
   });
 
   await channel.assertExchange('events', 'topic', {durable: false});
-  await channel.assertQueue(`app_${config.rabbit.serviceName}.balance_processor`);
-  await channel.bindQueue(`app_${config.rabbit.serviceName}.balance_processor`, 'events', `${config.rabbit.serviceName}_transaction.*`);
+  await channel.assertExchange('internal', 'topic', {durable: false});
+
+  await channel.assertQueue(`${config.rabbit.serviceName}.balance_processor`);
+  await channel.bindQueue(`${config.rabbit.serviceName}.balance_processor`, 'events', `${config.rabbit.serviceName}_transaction.*`);
+  await channel.bindQueue(`${config.rabbit.serviceName}.balance_processor`, 'internal', `${config.rabbit.serviceName}_user.created`);
+
+  await providerService.setRabbitmqChannel(channel, config.rabbit.serviceName);
+
 
   channel.prefetch(2);
-  channel.consume(`app_${config.rabbit.serviceName}.balance_processor`, async (data) => {
+
+  channel.consume(`${config.rabbit.serviceName}.balance_processor`, async (data) => {
     try {
-      let tx = JSON.parse(data.content.toString());
-      log.info('balance', tx.id);
-      if (tx.blockNumber !== -1) 
-        await processTx(tx, channel);
+      const parsedData = JSON.parse(data.content.toString());
+      const addr = data.fields.routingKey.slice(TX_QUEUE.length + 1) || parsedData.address;
+
+      let account = await accountModel.findOne({address: addr});
+
+      if (!account)
+        return channel.ack(data);
+
+      const balances = await getUpdatedBalance(account.address, parsedData.signature ? parsedData : null);
+
+      account.balance = balances.balance;
+
+      if (balances.assets)
+        account.assets = balances.assets;
+
+      account.save();
+
+      let message = {
+        address: account.address,
+        balance: account.balance,
+        assets: account.assets
+      };
+
+      if(parsedData.signature)
+        message.tx = parsedData;
+
+      await channel.publish('events', `${config.rabbit.serviceName}_balance.${account.address}`, new Buffer(JSON.stringify(message)));
+
+
     } catch (e) {
       log.error(e);
     }
@@ -107,4 +92,7 @@ let init = async () => {
   });
 };
 
-module.exports = init();
+module.exports = init().catch(err => {
+  log.error(err);
+  process.exit(0);
+});

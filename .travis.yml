@@ -20,15 +20,8 @@ install:
   - npm install -g pm2
 
 before_script:
-    - |
-      if [ "$TRAVIS_BRANCH" == "master" ]; then
-        cd $TRAVIS_BUILD_DIR/ && git clone https://github.com/chronobank/middleware-waves-blockprocessor 
-      else
-        cd $TRAVIS_BUILD_DIR/ && git clone -b develop https://github.com/chronobank/middleware-waves-blockprocessor 
-      fi;
-    - cd $TRAVIS_BUILD_DIR/middleware-waves-blockprocessor && npm install
-    - cd $TRAVIS_BUILD_DIR/middleware-waves-blockprocessor/tests/node && java -jar waves.jar waves-devnet.conf > /dev/null &
-    - sleep 30 && cd $TRAVIS_BUILD_DIR/middleware-waves-blockprocessor && pm2 start index.js
+    - cd $TRAVIS_BUILD_DIR/node_modules/middleware-waves-blockprocessor/tests/node && java -jar waves.jar waves-devnet.conf > /dev/null &
+    - sleep 30 && cd $TRAVIS_BUILD_DIR/node_modules/middleware-waves-blockprocessor && pm2 start index.js
     - cd $TRAVIS_BUILD_DIR && pm2 start index.js
 
 script:
