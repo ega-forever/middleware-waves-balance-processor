@@ -13,15 +13,12 @@ const config = require('./config'),
   amqp = require('amqplib'),
   connectToQueue = require('./helpers/connectToQueue'),
   clearQueues = require('./helpers/clearQueues'),
-  consumeMessages = require('./helpers/consumeMessages'),
   ASSET_NAME = 'LLLLLLLLLLL',
   createIssue = require('./helpers/createIssue'),
   ctx = {
-  accounts: [],
-  amqp: {}
+    accounts: [],
+    amqp: {}
   };
-
-let assetId;
 
 mongoose.Promise = Promise;
 mongoose.connect(config.mongo.accounts.uri, {useMongoClient: true});
@@ -36,9 +33,8 @@ describe('core/balance processor', function () {
 
     ctx.accounts = config.dev.accounts;
     await accountModel.create({address: ctx.accounts[0]});
-    //await clearQueues(ctx.amqp.instance);
-    assetId = await createIssue(ASSET_NAME, ctx.accounts[0]);
-
+    await clearQueues(ctx.amqp.instance);
+    ctx.assetId = await createIssue(ASSET_NAME, ctx.accounts[0]);
   });
 
   after(async () => {
@@ -46,42 +42,37 @@ describe('core/balance processor', function () {
   });
 
   afterEach(async () => {
-    //await clearQueues(ctx.amqp.instance);
+    await clearQueues(ctx.amqp.instance);
   });
 
   it('send 100 waves from account0 to account1 and validate message', async () => {
 
     const provider = await providerService.get();
-
     const initBalance = await provider.getBalanceByAddress(ctx.accounts[0]);
 
     const checkMessage = (content) => {
-      expect(content).to.contain.all.keys(
-        'address',
-        'balance',
-        'assets',
-        'tx'
-      );
+      expect(content).to.contain.all.keys('address', 'balance', 'assets', 'tx');
       expect(content.address).to.equal(ctx.accounts[0]);
       expect(initBalance - content.balance).to.not.equal(0);
       return true;
     };
 
-    const tx = await provider.signTransaction(
-      config.dev.apiKey, ctx.accounts[1], 100, ctx.accounts[0]);
+    const tx = await provider.signTransaction(config.dev.apiKey, ctx.accounts[1], 100, ctx.accounts[0]);
+
     return await Promise.all([
       (async () => {
-        let response = await provider.sendTransaction(config.dev.apiKey, tx);
-        console.log(response);
+        await provider.sendTransaction(config.dev.apiKey, tx);
       })(),
       (async () => {
         await connectToQueue(ctx.amqp.channel);
-        return await consumeMessages(1, ctx.amqp.channel, (message) => {
-          const content = JSON.parse(message.content);
-          console.log(content)
-          if (content.tx.id === tx.id && content.tx.blockNumber !== -1)
-            return checkMessage(content);
-          return false;
+        await new Promise(res => {
+          ctx.amqp.channel.consume(`app_${config.rabbit.serviceName}_test.balance`, async message => {
+            const content = JSON.parse(message.content);
+            if (content.tx.id === tx.id && content.tx.blockNumber !== -1) {
+              checkMessage(content);
+              res();
+            }
+          }, {noAck: true});
         });
       })()
     ]);
