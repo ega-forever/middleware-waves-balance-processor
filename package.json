@@ -22,6 +22,7 @@
   "license": "AGPL-3.0",
   "description": "",
   "devDependencies": {
+    "middleware_waves.blockProcessor": "github:chronobank/middleware-waves-blockprocessor#feature/MD-403",
     "babel-eslint": "^8.0.0",
     "chai": "^4.1.1",
     "eslint": "^4.6.1",
