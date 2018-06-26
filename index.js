@@ -67,8 +67,10 @@ let init = async () => {
 
       account.balance = balances.balance;
 
-      if (balances.assets)
+      if (balances.assets) {
         account.assets = balances.assets;
+        account.markModified('assets');
+      }
 
       account.save();
 
@@ -78,7 +80,7 @@ let init = async () => {
         assets: account.assets
       };
 
-      if(parsedData.signature)
+      if (parsedData.signature)
         message.tx = parsedData;
 
       await channel.publish('events', `${config.rabbit.serviceName}_balance.${account.address}`, new Buffer(JSON.stringify(message)));
