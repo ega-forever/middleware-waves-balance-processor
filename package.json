@@ -4,10 +4,11 @@
   "main": "index.js",
   "dependencies": {
     "amqplib": "^0.5.1",
-    "middleware-common-components": "github:ChronoBank/middleware-common-components",
     "bluebird": "^3.5.0",
     "bunyan": "^1.8.10",
     "dotenv": "^4.0.0",
+    "jsesc": "^2.5.1",
+    "middleware-common-components": "github:ChronoBank/middleware-common-components",
     "mongoose": "^4.11.11",
     "mongoose-long": "^0.1.1",
     "request": "^2.85.0",
