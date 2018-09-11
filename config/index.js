@@ -33,6 +33,9 @@ const config = {
         };
       })
       .value()
+  },
+  logs: {
+    level: process.env.LOG_LEVEL || 'info'
   }
 };
 

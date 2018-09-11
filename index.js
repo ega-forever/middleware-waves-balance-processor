@@ -19,7 +19,7 @@ const config = require('./config'),
   accountModel = require('./models/accountModel'),
   getUpdatedBalance = require('./utils/balance/getUpdatedBalance'),
   bunyan = require('bunyan'),
-  log = bunyan.createLogger({name: 'core.balanceProcessor'}),
+  log = bunyan.createLogger({name: 'core.balanceProcessor', level: config.logs.level}),
   amqp = require('amqplib');
 
 const TX_QUEUE = `${config.rabbit.serviceName}_transaction`;
@@ -66,6 +66,7 @@ let init = async () => {
       const balances = await getUpdatedBalance(account.address, parsedData.signature ? parsedData : null);
 
       account.balance = balances.balance;
+      account.markModified('balance');
 
       if (balances.assets) {
         account.assets = balances.assets;
