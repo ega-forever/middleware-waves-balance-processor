@@ -69,7 +69,7 @@ module.exports = (ctx) => {
 
 
                expect(_.isEqual(JSON.parse(JSON.stringify(tx)), message.tx)).to.equal(true);
-               expect(message.balance).to.eq(balance1);
+               expect(message.balance).to.eq(balance1.toString());
                expect(message.address).to.eq(ctx.accounts[1]);
                await ctx.amqp.channel.deleteQueue(`app_${config.rabbit.serviceName}_test_features.balance`);
                res();
@@ -91,7 +91,7 @@ module.exports = (ctx) => {
 
                const message = JSON.parse(data.content.toString());
 
-               expect(message.balance).to.eq(balance0);
+               expect(message.balance).to.eq(balance0.toString());
                expect(message.address).to.eq(ctx.accounts[0]);
                expect(_.isEqual(JSON.parse(JSON.stringify(tx)), message.tx)).to.equal(true);
                await ctx.amqp.channel.deleteQueue(`app_${config.rabbit.serviceName}_test_features2.balance`);
@@ -132,7 +132,7 @@ module.exports = (ctx) => {
 
              const message = JSON.parse(data.content.toString());
 
-             expect(message.balance).to.eq(balance);
+             expect(message.balance).to.eq(balance.toString());
              expect(message.address).to.eq(ctx.accounts[0]);
              expect(message.tx).to.undefined;
 

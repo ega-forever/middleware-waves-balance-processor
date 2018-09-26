@@ -20,7 +20,7 @@ module.exports = (ctx) => {
     await models.accountModel.remove({});
 
     await models.accountModel.create({
-      address: ctx.accounts[0].address,
+      address: ctx.accounts[0],
       balance: 0,
       isActive: true
     });
