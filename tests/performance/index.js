@@ -54,7 +54,7 @@ module.exports = (ctx) => {
   it('validate balance processor notification speed', async () => {
     const address = ctx.accounts[0];
 
-    await ctx.amqp.channel.assertQueue(`app_${config.rabbit.serviceName}_test_performance.balance`);
+    await ctx.amqp.channel.assertQueue(`app_${config.rabbit.serviceName}_test_performance.balance`, {autoDelete: true, durable: false});
     await ctx.amqp.channel.bindQueue(`app_${config.rabbit.serviceName}_test_performance.balance`, 'events', `${config.rabbit.serviceName}_balance.${address}`);
 
     const start = Date.now();
