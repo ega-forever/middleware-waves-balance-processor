@@ -5,7 +5,7 @@
  */
 const amqp = require('amqplib'),
   _ =require('lodash'),
-  config = require('../config');
+  config = require('../../config');
 
 
 const main = async () => {
@@ -18,13 +18,10 @@ const main = async () => {
       await channel.bindQueue('test_block', config.systemRabbit.exchange, 
         `${config.systemRabbit.serviceName}.${k}.checking`);
       channel.consume('test_block', async msg => {
-            console.log('proxy - get msg')
             if (!msg)
               return;
             const content = JSON.parse(msg.content);
-            console.log('proxy - get ', k)
            const version = content.version;
-            console.log('publish', `${config.systemRabbit.serviceName}.${k}.checked`);
             await channel.publish(config.rabbit.exchange, 
               `${config.systemRabbit.serviceName}.${k}.checked`, new Buffer(JSON.stringify({version})));
       });
