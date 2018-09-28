@@ -66,6 +66,7 @@ module.exports = (ctx) => {
                if (!data)
                  return;
                const message = JSON.parse(data.content.toString());
+               console.log(message);
 
 
                expect(_.isEqual(JSON.parse(JSON.stringify(tx)), message.tx)).to.equal(true);
