@@ -23,7 +23,8 @@ const main = async () => {
               return;
             const content = JSON.parse(msg.content);
             console.log('proxy - get ', k)
-            const version = content.version;
+           const version = content.version;
+            console.log('publish', `${config.systemRabbit.serviceName}.${k}.checked`);
             await channel.publish(config.rabbit.exchange, 
               `${config.systemRabbit.serviceName}.${k}.checked`, new Buffer(JSON.stringify({version})));
       });

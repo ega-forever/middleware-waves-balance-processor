@@ -48,8 +48,6 @@ class InfrastructureService extends EventEmitter
   constructor (info, amqpService, options = {}) {
     if (!info || !(info instanceof InfrastructureInfo))
       throw new Error('not set right info in params');
-    if (!amqpService || !(amqpService instanceof AmqpService))
-      throw new Error('not set right amqpService in params');
     super();
     
     this.info = info;
