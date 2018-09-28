@@ -27,7 +27,7 @@ module.exports = (ctx) => {
     ctx.balanceCalcTime = 10000;
 
     await ctx.amqp.channel.deleteQueue(`${config.rabbit.serviceName}.balance_processor`);
-    ctx.balanceProcessorPid = spawn('node', ['index.js'], {env: process.env, stdio: 'ignore'});
+    ctx.balanceProcessorPid = spawn('node', ['index.js'], {env: process.env, stdio: 'inherit'});
     await Promise.delay(10000);
   });
 

@@ -18,9 +18,11 @@ const main = async () => {
       await channel.bindQueue('test_block', config.systemRabbit.exchange, 
         `${config.systemRabbit.serviceName}.${k}.checking`);
       channel.consume('test_block', async msg => {
+            console.log('proxy - get msg')
             if (!msg)
               return;
             const content = JSON.parse(msg.content);
+            console.log('proxy - get ', k)
             const version = content.version;
             await channel.publish(config.rabbit.exchange, 
               `${config.systemRabbit.serviceName}.${k}.checked`, new Buffer(JSON.stringify({version})));
