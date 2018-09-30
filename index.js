@@ -16,10 +16,13 @@ const config = require('./config'),
   mongoose = require('mongoose'),
   Promise = require('bluebird'),
   providerService = require('./services/providerService'),
-  accountModel = require('./models/accountModel'),
+  models = require('./models'),
   getUpdatedBalance = require('./utils/balance/getUpdatedBalance'),
+  AmqpService = require('middleware_common_infrastructure/AmqpService'),
+  InfrastructureInfo = require('middleware_common_infrastructure/InfrastructureInfo'),
+  InfrastructureService = require('middleware_common_infrastructure/InfrastructureService'),
   bunyan = require('bunyan'),
-  log = bunyan.createLogger({name: 'core.balanceProcessor'}),
+  log = bunyan.createLogger({name: 'core.balanceProcessor', level: config.logs.level}),
   amqp = require('amqplib');
 
 const TX_QUEUE = `${config.rabbit.serviceName}_transaction`;
@@ -27,11 +30,32 @@ const TX_QUEUE = `${config.rabbit.serviceName}_transaction`;
 mongoose.Promise = Promise;
 mongoose.connect(config.mongo.accounts.uri, {useMongoClient: true});
 
+const runSystem = async function () {
+  const rabbit = new AmqpService(
+    config.systemRabbit.url, 
+    config.systemRabbit.exchange,
+    config.systemRabbit.serviceName
+  );
+  const info = new InfrastructureInfo(require('./package.json'), config.system.waitTime);
+  const system = new InfrastructureService(info, rabbit, {checkInterval: 10000});
+  await system.start();
+  system.on(system.REQUIREMENT_ERROR, (requirement, version) => {
+    log.error(`Not found requirement with name ${requirement.name} version=${requirement.version}.` +
+        ` Last version of this middleware=${version}`);
+    process.exit(1);
+  });
+  await system.checkRequirements();
+  system.periodicallyCheck();
+};
+
 let init = async () => {
+  if (config.checkSystem)
+    await runSystem();
 
   mongoose.connection.on('disconnected', () => {
     throw new Error('mongo disconnected!');
   });
+  models.init();
 
   let conn = await amqp.connect(config.rabbit.url);
 
@@ -58,7 +82,7 @@ let init = async () => {
       const parsedData = JSON.parse(data.content.toString());
       const addr = data.fields.routingKey.slice(TX_QUEUE.length + 1) || parsedData.address;
 
-      let account = await accountModel.findOne({address: addr});
+      let account = await models.accountModel.findOne({address: addr});
 
       if (!account)
         return channel.ack(data);
@@ -66,6 +90,7 @@ let init = async () => {
       const balances = await getUpdatedBalance(account.address, parsedData.signature ? parsedData : null);
 
       account.balance = balances.balance;
+      account.markModified('balance');
 
       if (balances.assets) {
         account.assets = balances.assets;

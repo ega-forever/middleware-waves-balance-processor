@@ -55,4 +55,5 @@ const Account = new mongoose.Schema({
   created: {type: Date, required: true, default: Date.now},
 });
 
-module.exports = mongoose.model(`${config.mongo.accounts.collectionPrefix}Account`, Account);
+module.exports = () =>
+  mongoose.model(`${config.mongo.accounts.collectionPrefix}Account`, Account);
