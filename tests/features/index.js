@@ -67,7 +67,8 @@ module.exports = (ctx) => {
                  return;
                const message = JSON.parse(data.content.toString());
 
-               expect(tx.id).to.equal(message.tx.id);
+               console.log(tx);
+               expect(tx.timestamp).to.equal(message.tx.timestamp);
                expect(message.balance).to.eq(balance1.toString());
                expect(message.address).to.eq(ctx.accounts[1]);
                await ctx.amqp.channel.deleteQueue(`app_${config.rabbit.serviceName}_test_features.balance`);
