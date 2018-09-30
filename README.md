@@ -71,6 +71,11 @@ The options are presented below:
 | NETWORK   | network name (alias)- is used for connecting via http node (see block processor section)
 | RPC   | the path to waves rest api for get balance for user
 | BLOCK_GENERATION_TIME | generation time for block
+| SYSTEM_RABBIT_URI   | rabbitmq URI connection string for infrastructure
+| SYSTEM_RABBIT_SERVICE_NAME   | rabbitmq service name for infrastructure
+| SYSTEM_RABBIT_EXCHANGE   | rabbitmq exchange name for infrastructure
+| CHECK_SYSTEM | check infrastructure or not (default = true)
+| CHECK_WAIT_TIME | interval for wait respond from requirements
 
 License
 ----

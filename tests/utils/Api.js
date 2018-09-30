@@ -189,17 +189,14 @@ class Api {
     return _.get(result, 'balance', null);
   };
 
-  /**
-   *
-   * @param {String} address
-   * @return {Number}
-   */
-  async getBalanceByAddress (address)  {
-    const result = await this._makeRequest(`/addresses/balance/${address}`);
-    return result.balance;
-  };
+  async getTransaction (id) {
+    return await this._makeRequest(`/transactions/info/${id}`);
+  }
 
-
+  async getTransactions (address, limit) {
+    const txs = await this._makeRequest(`/transactions/address/${address}/limit/${limit}`);
+    return txs[0];
+  }
 }
 
 module.exports = Api;

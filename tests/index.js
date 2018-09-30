@@ -1,82 +1,76 @@
 /**
- *
  * Copyright 2017–2018, LaborX PTY
  * Licensed under the AGPL Version 3 license.
- * @author Kirill Sergeev <cloudkserg11@gmail.com>
+ * @author Egor Zuev <zyev.egor@gmail.com>
  */
+
+require('dotenv/config');
+process.env.LOG_LEVEL = 'error';
+
 const config = require('./config'),
+  models = require('../models'),
+  fuzzTests = require('./fuzz'),
+  providerService = require('../services/providerService'),
+  performanceTests = require('./performance'),
+  featuresTests = require('./features'),
+  blockTests = require('./blocks'),
   Promise = require('bluebird'),
   mongoose = require('mongoose'),
-  expect = require('chai').expect,
-  providerService = require('./services/providerService'),
-  accountModel = require('../models/accountModel'),
   amqp = require('amqplib'),
-  connectToQueue = require('./helpers/connectToQueue'),
-  clearQueues = require('./helpers/clearQueues'),
-  ASSET_NAME = 'LLLLLLLLLLL',
-  createIssue = require('./helpers/createIssue'),
-  ctx = {
-    accounts: [],
-    amqp: {}
-  };
+  spawn = require('child_process').spawn,
+  ctx = {};
 
 mongoose.Promise = Promise;
 mongoose.connect(config.mongo.accounts.uri, {useMongoClient: true});
 
-describe('core/balance processor', function () {
+
+describe('core/balanceProcessor', function () {
 
   before(async () => {
-    await accountModel.remove();
+    models.init();
+    ctx.accounts = config.dev.accounts;
+    ctx.amqp = {};
     ctx.amqp.instance = await amqp.connect(config.rabbit.url);
     ctx.amqp.channel = await ctx.amqp.instance.createChannel();
+    await ctx.amqp.channel.assertExchange('events', 'topic', {durable: false});
+    await ctx.amqp.channel.assertExchange('internal', 'topic', {durable: false});
+    await ctx.amqp.channel.assertQueue(`${config.rabbit.serviceName}_current_provider.get`, 
+      {durable: false});
+    await ctx.amqp.channel.bindQueue(`${config.rabbit.serviceName}_current_provider.get`, 
+      'internal', `${config.rabbit.serviceName}_current_provider.get`);
+
+    ctx.amqp.channel.consume(`${config.rabbit.serviceName}_current_provider.get`, 
+      async () => {
+        ctx.amqp.channel.publish('internal', 
+          `${config.rabbit.serviceName}_current_provider.set`, 
+          new Buffer(JSON.stringify({index: 0})))
+        ;
+      }, {noAck: true});
+
+
+
     await providerService.setRabbitmqChannel(ctx.amqp.channel, config.rabbit.serviceName);
 
-    ctx.accounts = config.dev.accounts;
-    await accountModel.create({address: ctx.accounts[0]});
-    await clearQueues(ctx.amqp.instance);
-    ctx.assetId = await createIssue(ASSET_NAME, ctx.accounts[0]);
+    ctx.checkerPid = spawn('node', ['tests/utils/proxyChecker.js'], {
+      env: process.env, stdio: 'ignore'
+    });
+    await Promise.delay(5000);
   });
 
-  after(async () => {
-    return mongoose.disconnect();
+  after (async () => {
+    mongoose.disconnect();
+    await ctx.amqp.instance.close();
+    await ctx.checkerPid.kill();
   });
 
-  afterEach(async () => {
-    await clearQueues(ctx.amqp.instance);
-  });
 
-  it('send 100 waves from account0 to account1 and validate message', async () => {
 
-    const provider = await providerService.get();
-    const initBalance = await provider.getBalanceByAddress(ctx.accounts[0]);
+  //describe('block', () => blockTests(ctx));
 
-    const checkMessage = (content) => {
-      expect(content).to.contain.all.keys('address', 'balance', 'assets', 'tx');
-      expect(content.address).to.equal(ctx.accounts[0]);
-      expect(initBalance - content.balance).to.not.equal(0);
-      return true;
-    };
+  //describe('performance', () => performanceTests(ctx));
 
-    const tx = await provider.signTransaction(config.dev.apiKey, ctx.accounts[1], 100, ctx.accounts[0]);
+  //describe('fuzz', () => fuzzTests(ctx));
 
-    return await Promise.all([
-      (async () => {
-        await provider.sendTransaction(config.dev.apiKey, tx);
-      })(),
-      (async () => {
-        await connectToQueue(ctx.amqp.channel);
-        await new Promise(res => {
-          ctx.amqp.channel.consume(`app_${config.rabbit.serviceName}_test.balance`, async message => {
-            const content = JSON.parse(message.content);
-            if (content.tx.id === tx.id && content.tx.blockNumber !== -1) {
-              checkMessage(content);
-              res();
-            }
-          }, {noAck: true});
-        });
-      })()
-    ]);
-  });
-
+  describe('features', () => featuresTests(ctx));
 
 });

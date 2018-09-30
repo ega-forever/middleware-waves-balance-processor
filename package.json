@@ -2,6 +2,9 @@
   "name": "middleware_waves.balanceProcessor",
   "version": "1.0.0",
   "main": "index.js",
+  "requirements": {
+    "middleware_waves.blockProcessor": "1.0.0"
+  },
   "dependencies": {
     "amqplib": "^0.5.1",
     "bluebird": "^3.5.0",
@@ -9,6 +12,7 @@
     "dotenv": "^4.0.0",
     "jsesc": "^2.5.1",
     "middleware-common-components": "github:ChronoBank/middleware-common-components",
+    "middleware_common_infrastructure": "^1.0.4",
     "mongoose": "^4.11.11",
     "mongoose-long": "^0.1.1",
     "request": "^2.85.0",
@@ -17,7 +21,7 @@
   },
   "scripts": {
     "lint": "node ./node_modules/eslint/bin/eslint.js -c .eslintrc.js --ext .js --fix --ignore-path .eslintignore .",
-    "test": "node ./node_modules/mocha/bin/mocha -t 150000 tests"
+    "test": "node ./node_modules/mocha/bin/mocha -t 150000 -gc tests"
   },
   "author": "chronobank",
   "license": "AGPL-3.0",
