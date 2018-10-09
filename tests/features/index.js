@@ -63,13 +63,11 @@ module.exports = (ctx) => {
            ctx.amqp.channel.consume(`app_${config.rabbit.serviceName}_test_features.balance`, 
              async data => {
 
-               if (!data)
+               if (!data || !tx)
                  return;
                const message = JSON.parse(data.content.toString());
-               console.log(message);
 
-
-               expect(_.isEqual(JSON.parse(JSON.stringify(tx)), message.tx)).to.equal(true);
+               expect(tx.id).to.equal(message.tx.id);
                expect(message.balance).to.eq(balance1.toString());
                expect(message.address).to.eq(ctx.accounts[1]);
                await ctx.amqp.channel.deleteQueue(`app_${config.rabbit.serviceName}_test_features.balance`);
@@ -87,7 +85,7 @@ module.exports = (ctx) => {
              `app_${config.rabbit.serviceName}_test_features2.balance`,
              async data => {
 
-               if (!data)
+               if (!data || !tx)
                  return;
 
                const message = JSON.parse(data.content.toString());
