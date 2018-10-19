@@ -5,11 +5,9 @@
  */
 
 const models = require('../../models'),
-  Api = require('../utils/Api'),
   config = require('../../config'),
   getUpdatedBalance = require('../../utils/balance/getUpdatedBalance'),
   expect = require('chai').expect,
-  providerService = require('../../services/providerService'),
   sender = require('../utils/sender'),
   Promise = require('bluebird'),
   spawn = require('child_process').spawn;
@@ -20,25 +18,25 @@ module.exports = (ctx) => {
     await models.accountModel.remove({});
 
     await models.accountModel.create({
-      address: ctx.accounts[0],
+      address: ctx.accounts[0].address,
       balance: 0,
       isActive: true
     });
     ctx.balanceCalcTime = 10000;
 
     await ctx.amqp.channel.deleteQueue(`${config.rabbit.serviceName}.balance_processor`);
-    ctx.balanceProcessorPid = spawn('node', ['index.js'], {env: process.env, stdio: 'ignore'});
+    ctx.balanceProcessorPid = spawn('node', ['index.js'], {env: process.env, stdio: 'inherit'});
     await Promise.delay(10000);
   });
 
 
   it('generate transation', async () => {
-    await sender.sendTransaction(ctx.accounts[0], ctx.accounts[1], 10);
+    await sender.sendTransaction(ctx.accounts[0].address, ctx.accounts[1].address, 10);
   });
 
 
   it('validate unconfirmed balance calculate performance and leaks', async () => {
-    const address = ctx.accounts[0];
+    const address = ctx.accounts[0].address;
 
     let start = Date.now();
     const memUsage = process.memoryUsage().heapUsed / 1024 / 1024;
@@ -52,7 +50,7 @@ module.exports = (ctx) => {
   });
 
   it('validate balance processor notification speed', async () => {
-    const address = ctx.accounts[0];
+    const address = ctx.accounts[0].address;
 
     await ctx.amqp.channel.assertQueue(`app_${config.rabbit.serviceName}_test_performance.balance`, {autoDelete: true, durable: false});
     await ctx.amqp.channel.bindQueue(`app_${config.rabbit.serviceName}_test_performance.balance`, 'events', `${config.rabbit.serviceName}_balance.${address}`);

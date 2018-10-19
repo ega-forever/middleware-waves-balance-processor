@@ -19,7 +19,7 @@ module.exports = (ctx) => {
     await models.accountModel.remove({});
 
     await models.accountModel.create({
-      address: ctx.accounts[0],
+      address: ctx.accounts[0].address,
       balance: 0,
       isActive: true
     });
@@ -31,7 +31,7 @@ module.exports = (ctx) => {
 
 
   it('validate balance processor update balance ability', async () => {
-    const address = ctx.accounts[0];
+    const address = ctx.accounts[0].address;
 
     const transaction = {
         address
@@ -72,7 +72,7 @@ module.exports = (ctx) => {
   it('restart balance processor', async () => {
     const instance = await providerService.get();
 
-    const address = ctx.accounts[0];
+    const address = ctx.accounts[0].address;
 
     ctx.balanceProcessorPid = spawn('node', ['index.js'], {env: process.env, stdio: 'ignore'});
     await Promise.delay(20000);
