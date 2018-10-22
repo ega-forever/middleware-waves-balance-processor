@@ -10,8 +10,6 @@ process.env.LOG_LEVEL = 'error';
 const config = require('./config'),
   models = require('../models'),
   fs = require('fs'),
-  _ = require('lodash'),
-  WavesAPI = require('@waves/waves-api'),
   fuzzTests = require('./fuzz'),
   request = require('request-promise'),
   providerService = require('../services/providerService'),
@@ -53,14 +51,6 @@ describe('core/balanceProcessor', function () {
       stdio: 'ignore'
     });
 
-    /*    const nodeConfig = _.merge({}, WavesAPI.TESTNET_CONFIG, {
-          networkByte: 'D'.charCodeAt(0),
-          nodeAddress: config.providerForTest,
-          matcherAddress: `${config.providerForTest}/matcher`
-        });
-
-        const Waves = WavesAPI.create(nodeConfig);*/
-
     if (!fs.existsSync('tests/node'))
       fs.mkdirSync('tests/node');
 
@@ -72,7 +62,18 @@ describe('core/balanceProcessor', function () {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
         }
+      }).catch(() => {
+        console.log('github api is not available, will download the 0.14.6 version of node');
+        return {
+          assets: [
+            {
+              url: 'https://api.github.com/repos/wavesplatform/Waves/releases/assets/8932223',
+              browser_download_url: 'https://github.com/wavesplatform/Waves/releases/download/v0.14.6/waves-all-0.14.6.jar'
+            }
+          ]
+        }
       });
+
 
 
       const nodeFile = await request({
@@ -84,27 +85,6 @@ describe('core/balanceProcessor', function () {
       });
 
       fs.writeFileSync('tests/node/waves.jar', nodeFile, 'binary');
-
-      /*      let configFile = await request({
-              url: 'https://raw.githubusercontent.com/wavesplatform/Waves/master/waves-devnet.conf',
-              encoding: 'utf-8',
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-              }
-            });
-
-
-            configFile = configFile.replace(/(?<=api-key-hash = )(.*)/gm, '"H6nsiifwYKYEx6YzYD7woP1XCn72RVvx6tC1zjjLXqsu"'); //todo replace all addresses
-
-            let accounts = configFile.match(/(?<=")3F.{33}(?=")/gm);
-            for (let index = 0; index < accounts.length; index++) {
-              if(ctx.accounts[index]) {
-                console.log(`replacing ${accounts[index]} => ${ctx.accounts[index].address}`);
-                configFile = configFile.replace(accounts[index], ctx.accounts[index].address)
-              }
-            }
-
-            fs.writeFileSync('tests/node/waves-devnet.conf', configFile, 'utf-8');*/
 
     }
 
